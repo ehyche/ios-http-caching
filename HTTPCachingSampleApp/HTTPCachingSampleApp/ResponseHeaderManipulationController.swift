@@ -10,10 +10,47 @@ import UIKit
 
 class ResponseHeaderManipulationController: UITableViewController {
 
+    // MARK: - Public properties
+
+    public private(set) var cacheControlHeaderValue: String?
+    public private(set) var expiresHeaderValue: String?
+
+    // MARK: - Private properties
+
+    private enum TableViewSection: Int {
+        case cacheControlParameters
+        case cacheControlHeader
+    }
+
+    private enum CacheControlParameters: Int {
+        case maxAge
+        case maxStale
+    }
+
+    private let maxAgeChoices: [OperationParameterValue] = [
+        OperationParameterValue.notSent,
+        OperationParameterValue.integer(60),
+        OperationParameterValue.integer(600),
+        OperationParameterValue.integer(3600)
+    ]
+
+    private let maxStaleChoices: [OperationParameterValue] = [
+        OperationParameterValue.notSent,
+        OperationParameterValue.integer(60),
+        OperationParameterValue.integer(600),
+        OperationParameterValue.integer(3600)
+    ]
+
+    private var selectedMaxAgeIndex = 0
+    private var selectedMaxStaleIndex = 0
+
+    // MARK: - UIViewController methods
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        navigationItem.title = "Change Response Headers"
+        navigationItem.title = "Alter Response Headers"
+        tableView.register(GPAPIParameterTableViewCell.self, forCellReuseIdentifier: GPAPIParameterTableViewCell.reuseID)
     }
 
     override func didReceiveMemoryWarning() {
@@ -21,71 +58,171 @@ class ResponseHeaderManipulationController: UITableViewController {
         // Dispose of any resources that can be recreated.
     }
 
-    // MARK: - Table view data source
+    // MARK: - UITableViewDataSource methods
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        // #warning Incomplete implementation, return the number of sections
-        return 0
+        return 2
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        // #warning Incomplete implementation, return the number of rows
-        return 0
+        var numRows = 0
+
+        guard let tableViewSection = TableViewSection(rawValue: section) else {
+            return numRows
+        }
+
+        switch tableViewSection {
+        case .cacheControlParameters: numRows = 2
+        case .cacheControlHeader: numRows = 1
+        }
+
+        return numRows
     }
 
-    /*
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "reuseIdentifier", for: indexPath)
+        let cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
 
-        // Configure the cell...
+        guard let section = TableViewSection(rawValue: indexPath.section) else {
+            return cell
+        }
+
+        switch section {
+        case .cacheControlParameters:
+            if let cacheControlParam = CacheControlParameters(rawValue: indexPath.row) {
+                switch cacheControlParam {
+                case .maxAge:
+                    cell.textLabel?.text = "Max-Age"
+                    cell.detailTextLabel?.text = maxAgeChoices[selectedMaxAgeIndex].description
+                    cell.accessoryType = .disclosureIndicator
+                    cell.selectionStyle = .default
+                case .maxStale:
+                    cell.textLabel?.text = "Max-Stale"
+                    cell.detailTextLabel?.text = maxStaleChoices[selectedMaxStaleIndex].description
+                    cell.accessoryType = .disclosureIndicator
+                    cell.selectionStyle = .default
+                }
+            }
+        case .cacheControlHeader:
+            var cellText = ""
+            if let headerValue = cacheControlHeaderValue {
+                cellText = "Cache-Control: \(headerValue)"
+            } else {
+                cellText = "Not Sent"
+            }
+            cell.textLabel?.text = cellText
+            cell.accessoryType = .none
+            cell.selectionStyle = .none
+        }
 
         return cell
     }
-    */
 
-    /*
-    // Override to support conditional editing of the table view.
-    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the specified item to be editable.
-        return true
+    // MARK: - UITableViewDelegate methods
+
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        var title: String? = nil
+
+        guard let tableViewSection = TableViewSection(rawValue: section) else {
+            return title
+        }
+
+        switch tableViewSection {
+        case .cacheControlParameters: title = "Cache-Control Response Directives"
+        case .cacheControlHeader: title = "Inserted Cache-Control Header"
+        }
+
+        return title
     }
-    */
 
-    /*
-    // Override to support editing the table view.
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            // Delete the row from the data source
-            tableView.deleteRows(at: [indexPath], with: .fade)
-        } else if editingStyle == .insert {
-            // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-        }    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard let section = TableViewSection(rawValue: indexPath.section) else {
+            return
+        }
+
+        switch section {
+        case .cacheControlParameters:
+            if let cacheControlParam = CacheControlParameters(rawValue: indexPath.row) {
+                switch cacheControlParam {
+                case .maxAge:
+                    let controller = GPSelectionViewController(title: "Max-Age",
+                                                               choices: maxAgeChoices,
+                                                               selectedIndex: selectedMaxAgeIndex,
+                                                               autoPopOnSelectionChange: true)
+                    controller.onSelectionChanged = { [weak self] (selectedIndex: Int) in
+                        // Update the selected request parameter index
+                        self?.selectedMaxAgeIndex = selectedIndex
+                        // Update the Cache-Control header
+                        self?.updateHeaderValues()
+                        // Reload the tableview
+                        self?.tableView.reloadData()
+                    }
+                    navigationController?.pushViewController(controller, animated: true)
+                case .maxStale:
+                    let controller = GPSelectionViewController(title: "Max-Stale",
+                                                               choices: maxStaleChoices,
+                                                               selectedIndex: selectedMaxStaleIndex,
+                                                               autoPopOnSelectionChange: true)
+                    controller.onSelectionChanged = { [weak self] (selectedIndex: Int) in
+                        // Update the selected request parameter index
+                        self?.selectedMaxStaleIndex = selectedIndex
+                        // Update the Cache-Control header
+                        self?.updateHeaderValues()
+                        // Reload the tableview
+                        self?.tableView.reloadData()
+                    }
+                    navigationController?.pushViewController(controller, animated: true)
+                }
+            }
+        default:
+            break
+        }
     }
-    */
 
-    /*
-    // Override to support rearranging the table view.
-    override func tableView(_ tableView: UITableView, moveRowAt fromIndexPath: IndexPath, to: IndexPath) {
-
+    private func updateHeaderValues() {
+        cacheControlHeaderValue = cacheControlValue()
     }
-    */
 
-    /*
-    // Override to support conditional rearranging of the table view.
-    override func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
-        // Return false if you do not want the item to be re-orderable.
-        return true
+    private func cacheControlValue() -> String? {
+        var params = [String]()
+
+        if let maxAge = maxAgeValue() {
+            params.append("max-age=\(maxAge)")
+        }
+        if let maxStale = maxStaleValue() {
+            params.append("max-stale=\(maxStale)")
+        }
+
+        return (params.isEmpty ? nil : params.joined(separator: ", "))
     }
-    */
 
-    /*
-    // MARK: - Navigation
+    private func maxAgeValue() -> Int? {
+        var value: Int? = nil
 
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+        guard selectedMaxAgeIndex < maxAgeChoices.count else {
+            return value
+        }
+
+        switch maxAgeChoices[selectedMaxAgeIndex] {
+        case .integer(let intValue): value = intValue
+        default: break
+        }
+
+        return value
     }
-    */
+
+    private func maxStaleValue() -> Int? {
+        var value: Int? = nil
+
+        guard selectedMaxStaleIndex < maxStaleChoices.count else {
+            return value
+        }
+
+        switch maxStaleChoices[selectedMaxStaleIndex] {
+        case .integer(let intValue): value = intValue
+        default: break
+        }
+
+        return value
+    }
 
 }

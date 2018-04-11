@@ -335,20 +335,22 @@ class RequestResponseController: UITableViewController {
         showLoadingView()
 
         // Create the data task
-        let dataTask = session.dataTask(with: request) { (data, response, error) in
-            self.urlResponse = response as? HTTPURLResponse
+        let dataTask = session.dataTask(with: request)
+        appDelegate?.setCompletion(forTask: dataTask, completion: { [weak self] (data, response, error) in
+            self?.urlResponse = response as? HTTPURLResponse
             if let error = error {
-                self.urlResponseDataString = error.localizedDescription
+                self?.urlResponseDataString = error.localizedDescription
             } else {
-                self.urlResponseData = data
-                self.updateResponseHeaders()
-                self.updateResponseDataString()
+                self?.urlResponseData = data
+                self?.updateResponseHeaders()
+                self?.updateResponseDataString()
             }
             DispatchQueue.main.async {
-                self.updateUI()
-                self.hideLoadingView()
+                self?.appDelegate?.clearCompletion(forTask: dataTask)
+                self?.updateUI()
+                self?.hideLoadingView()
             }
-        }
+        })
 
         // Start the data task
         dataTask.resume()

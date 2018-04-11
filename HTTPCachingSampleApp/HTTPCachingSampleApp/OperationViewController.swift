@@ -33,6 +33,43 @@ public enum OperationParameterValue {
     }
 }
 
+extension OperationParameterValue: Equatable {
+
+    public static func ==(lhs: OperationParameterValue, rhs: OperationParameterValue) -> Bool {
+        var isEqual = false
+
+        switch lhs {
+        case .notSent:
+            switch rhs {
+            case .notSent: isEqual = true
+            default: break
+            }
+        case .boolean(let lhsBoolValue):
+            switch rhs {
+            case .boolean(let rhsBoolValue): isEqual = (lhsBoolValue == rhsBoolValue)
+            default: break
+            }
+        case .integer(let lhsIntValue):
+            switch rhs {
+            case .integer(let rhsIntValue): isEqual = (lhsIntValue == rhsIntValue)
+            default: break
+            }
+        case .number(let lhsDoubleValue):
+            switch rhs {
+            case .number(let rhsDoubleValue): isEqual = (lhsDoubleValue == rhsDoubleValue)
+            default: break
+            }
+        case .string(let lhsStringValue):
+            switch rhs {
+            case .string(let rhsStringValue): isEqual = (lhsStringValue == rhsStringValue)
+            default: break
+            }
+        }
+
+        return isEqual
+    }
+}
+
 public enum OperationParameterRequestLocation: String {
     case path = "Path"
     case query = "Query"

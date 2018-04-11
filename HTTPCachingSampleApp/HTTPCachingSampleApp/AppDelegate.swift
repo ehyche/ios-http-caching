@@ -8,6 +8,8 @@
 
 import UIKit
 
+typealias SessionCompletionBlock = (Data?, URLResponse?, Error?) -> Void
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
@@ -23,9 +25,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         URLInfo(name: "DealId A, show=default",
                 url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=default&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
         URLInfo(name: "DealId A, show=uuid",
-                url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=uuid&client_id=2995a613b7f3cec7362d4eb30b0d424f"))
+                url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=uuid&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
+        URLInfo(name: "DealId A, show=default, fake param",
+                url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=default&fakeParam=fakeValue&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
     ]
     var taskMetrics = [URLRequest: URLSessionTaskMetrics]()
+    var headerController: ResponseHeaderManipulationController? = nil
+    var cacheControlResponseHeaderValue: String? {
+        return headerController?.cacheControlHeaderValue
+    }
+    private struct TaskResponseInfo {
+        var response: URLResponse?
+        var error: Error?
+        var mutableData: NSMutableData?
+    }
+    private var taskCompletionBlocks = [Int: SessionCompletionBlock]()
+    private var taskInfo = [Int: TaskResponseInfo]()
+
+    public func setCompletion(forTask task: URLSessionTask, completion: @escaping SessionCompletionBlock) {
+        taskCompletionBlocks[task.taskIdentifier] = completion
+    }
+
+    public func clearCompletion(forTask task: URLSessionTask) {
+        taskCompletionBlocks[task.taskIdentifier] = nil
+    }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         sessionCache = URLCache(memoryCapacity: URLCache.shared.memoryCapacity,
@@ -59,6 +82,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let responseHeaderNavController = UINavigationController(rootViewController: responseHeaderController)
         responseHeaderNavController.tabBarItem.title = "Change Response Headers"
         responseHeaderNavController.tabBarItem.image = UIImage(named: "first")
+        headerController = responseHeaderController
 
         // Set up the tab bar controller
         let tabBarController = UITabBarController(nibName: nil, bundle: nil)
@@ -94,10 +118,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
-
 }
 
-extension AppDelegate: URLSessionTaskDelegate {
+extension AppDelegate: URLSessionDataDelegate {
+
+    // MARK: - URLSessionTaskDelegate methods
 
     public func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Swift.Void) {
         if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
@@ -125,6 +150,92 @@ extension AppDelegate: URLSessionTaskDelegate {
 
         taskMetrics[request] = metrics
     }
+
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let completionHandler = taskCompletionBlocks[task.taskIdentifier] {
+            if let info = taskInfo[task.taskIdentifier] {
+                var data: Data? = nil
+                if let mutableData = info.mutableData {
+                    data = Data(referencing: mutableData)
+                }
+                completionHandler(data, info.response, error)
+            } else {
+                completionHandler(nil, nil, error)
+            }
+        }
+    }
+
+    // MARK: - URLSessionDataDelegate methods
+
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        taskInfo[dataTask.taskIdentifier] = TaskResponseInfo(response: response, error: nil, mutableData: nil)
+        completionHandler(.allow)
+    }
+
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        if let info = taskInfo[dataTask.taskIdentifier] {
+            var mutableData = info.mutableData
+            if mutableData == nil {
+                mutableData = NSMutableData()
+            }
+            mutableData?.append(data)
+            taskInfo[dataTask.taskIdentifier] = TaskResponseInfo(response: info.response, error: info.error, mutableData: mutableData)
+        }
+    }
+
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, willCacheResponse proposedResponse: CachedURLResponse, completionHandler: @escaping (CachedURLResponse?) -> Swift.Void) {
+        // Only insert the Cache-Control header if we have one to insert
+        guard let cacheControlResponseValue = cacheControlResponseHeaderValue else {
+            completionHandler(proposedResponse)
+            return
+        }
+
+        // Only insert the Cache-Control header if the request allows it
+        guard let request = dataTask.originalRequest, localCacheAllowed(inRequest: request) else {
+            completionHandler(proposedResponse)
+            return
+        }
+
+        // Make sure the URLResponse is an HTTPURLResponse
+        guard let httpUrlResponse = proposedResponse.response as? HTTPURLResponse,
+              var responseHeaders = httpUrlResponse.allHeaderFields as? [String:String],
+              let url = httpUrlResponse.url else {
+                completionHandler(proposedResponse)
+                return
+        }
+
+        // Check for cache-control header in a different case
+        let defaultCacheControlKey = "Cache-Control"
+        let defaultCacheControlKeyLowercase = defaultCacheControlKey.lowercased()
+        let cacheControlKey = responseHeaders.keys.first { $0.lowercased() == defaultCacheControlKeyLowercase } ?? defaultCacheControlKey
+
+        responseHeaders[cacheControlKey] = cacheControlResponseValue
+
+        // Create a new HTTPURLResponse
+        guard let updatedResponse = HTTPURLResponse(url: url, statusCode: httpUrlResponse.statusCode, httpVersion: "HTTP/1.1", headerFields: responseHeaders) else {
+            completionHandler(proposedResponse)
+            return
+        }
+
+        // Create the new CachedURLResponse
+        let updatedCachedResponse = CachedURLResponse(response: updatedResponse, data: proposedResponse.data, userInfo: proposedResponse.userInfo, storagePolicy: proposedResponse.storagePolicy)
+        completionHandler(updatedCachedResponse)
+    }
+
+    // MARK: - Private methods
+
+    private func localCacheAllowed(inRequest request: URLRequest) -> Bool {
+        var allowed = true
+
+        switch request.cachePolicy {
+        case .reloadIgnoringLocalCacheData: allowed = false
+        case .reloadIgnoringLocalAndRemoteCacheData: allowed = false
+        default: break
+        }
+
+        return allowed
+    }
+
 
 }
 
