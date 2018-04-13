@@ -1,5 +1,5 @@
 //
-//  StringDictionaryDisplayController.swift
+//  DictionaryDisplayController.swift
 //  HTTPCachingSampleApp
 //
 //  Created by Eric Hyche on 4/12/18.
@@ -8,19 +8,19 @@
 
 import UIKit
 
-class StringDictionaryDisplayController: UITableViewController {
+class DictionaryDisplayController: UITableViewController {
 
     // MARK: - Private properties
 
     private struct Entry {
-        var name: String
-        var value: String
+        var name: AnyHashable
+        var value: Any
     }
     private var entries = [Entry]()
 
     // MARK: - Initializers
 
-    init(dict: [String:String]) {
+    init(withDictionary dict: [AnyHashable:Any]) {
         super.init(style: .grouped)
         for (name,value) in dict {
             entries.append(Entry(name: name, value: value))
@@ -61,8 +61,8 @@ class StringDictionaryDisplayController: UITableViewController {
             return cell
         }
 
-        cell.textLabel?.text = entries[indexPath.row].name
-        cell.detailTextLabel?.text = entries[indexPath.row].value
+        cell.textLabel?.text = "\(entries[indexPath.row].name)"
+        cell.detailTextLabel?.text = "\(entries[indexPath.row].value)"
         cell.accessoryType = .none
         cell.selectionStyle = .none
 

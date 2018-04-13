@@ -17,7 +17,7 @@
 		FD04A127207671A300502385 /* GPLoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD04A126207671A300502385 /* GPLoadingView.swift */; };
 		FD29BE25207FAD6B000D7567 /* CachedURLResponseController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29BE24207FAD6B000D7567 /* CachedURLResponseController.swift */; };
 		FD29BE27207FB646000D7567 /* DataDisplayViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29BE26207FB646000D7567 /* DataDisplayViewController.swift */; };
-		FD29BE29207FC138000D7567 /* StringDictionaryDisplayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29BE28207FC138000D7567 /* StringDictionaryDisplayController.swift */; };
+		FD29BE29207FC138000D7567 /* DictionaryDisplayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD29BE28207FC138000D7567 /* DictionaryDisplayController.swift */; };
 		FD8CBBB7207B9C700026DC30 /* SessionTaskMetricsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8CBBB6207B9C700026DC30 /* SessionTaskMetricsViewController.swift */; };
 		FD8CBBB9207BB3F10026DC30 /* RequestViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8CBBB8207BB3F10026DC30 /* RequestViewController.swift */; };
 		FD8CBBBB207BB4030026DC30 /* ResponseViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD8CBBBA207BB4020026DC30 /* ResponseViewController.swift */; };
@@ -45,7 +45,7 @@
 		FD04A126207671A300502385 /* GPLoadingView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GPLoadingView.swift; sourceTree = "<group>"; };
 		FD29BE24207FAD6B000D7567 /* CachedURLResponseController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedURLResponseController.swift; sourceTree = "<group>"; };
 		FD29BE26207FB646000D7567 /* DataDisplayViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDisplayViewController.swift; sourceTree = "<group>"; };
-		FD29BE28207FC138000D7567 /* StringDictionaryDisplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringDictionaryDisplayController.swift; sourceTree = "<group>"; };
+		FD29BE28207FC138000D7567 /* DictionaryDisplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictionaryDisplayController.swift; sourceTree = "<group>"; };
 		FD8CBBB6207B9C700026DC30 /* SessionTaskMetricsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTaskMetricsViewController.swift; sourceTree = "<group>"; };
 		FD8CBBB8207BB3F10026DC30 /* RequestViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestViewController.swift; sourceTree = "<group>"; };
 		FD8CBBBA207BB4020026DC30 /* ResponseViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseViewController.swift; sourceTree = "<group>"; };
@@ -119,7 +119,7 @@
 				FD8CBBBC207BB6870026DC30 /* URLDisplayViewController.swift */,
 				FD29BE24207FAD6B000D7567 /* CachedURLResponseController.swift */,
 				FD29BE26207FB646000D7567 /* DataDisplayViewController.swift */,
-				FD29BE28207FC138000D7567 /* StringDictionaryDisplayController.swift */,
+				FD29BE28207FC138000D7567 /* DictionaryDisplayController.swift */,
 			);
 			path = HTTPCachingSampleApp;
 			sourceTree = "<group>";
@@ -205,7 +205,7 @@
 				FD04A1252076715C00502385 /* GPButtonTableViewCell.swift in Sources */,
 				FDEE86162077B840008982C4 /* URLTableViewCell.swift in Sources */,
 				FDEE86182077BAA5008982C4 /* URLSelectionViewController.swift in Sources */,
-				FD29BE29207FC138000D7567 /* StringDictionaryDisplayController.swift in Sources */,
+				FD29BE29207FC138000D7567 /* DictionaryDisplayController.swift in Sources */,
 				FD8CBBBB207BB4030026DC30 /* ResponseViewController.swift in Sources */,
 				FD04A1202076715C00502385 /* OperationViewController.swift in Sources */,
 				FDB3742520768F5F0062362D /* TextFieldTableViewCell.swift in Sources */,
