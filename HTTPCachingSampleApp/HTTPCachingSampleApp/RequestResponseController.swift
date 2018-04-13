@@ -311,7 +311,7 @@ class RequestResponseController: UITableViewController {
                 clearResponse()
                 updateUI()
             case .responseInfo:
-                if indexPath.row == 1 {
+                if indexPath.row == 2 {
                     if let request = urlRequest,
                        let taskMetrics = sessionTaskMetrics(forRequest: request)  {
                         let controller = SessionTaskMetricsViewController(style: .grouped)

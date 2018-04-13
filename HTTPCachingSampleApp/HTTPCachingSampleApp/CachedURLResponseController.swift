@@ -14,6 +14,13 @@ class CachedURLResponseController: UITableViewController {
 
     private var cachedURLResponse: CachedURLResponse
 
+    private enum CachedURLResponseRow: Int {
+        case response
+        case storagePolicy
+        case userInfo
+        case data
+    }
+
     // MARK: - Initializers
 
     init(cachedURLResponse: CachedURLResponse) {
@@ -68,8 +75,12 @@ class CachedURLResponseController: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
 
-        switch indexPath.row {
-        case 0:
+        guard let rowEnum = CachedURLResponseRow(rawValue: indexPath.row) else {
+            return cell
+        }
+
+        switch rowEnum {
+        case .response:
             cell.textLabel?.text = "Response"
             var responseString = "Length: \(cachedURLResponse.response.expectedContentLength)"
             if let httpResponse = cachedURLResponse.response as? HTTPURLResponse {
@@ -78,12 +89,12 @@ class CachedURLResponseController: UITableViewController {
             cell.detailTextLabel?.text = responseString
             cell.accessoryType = .disclosureIndicator
             cell.selectionStyle = .default
-        case 1:
+        case .storagePolicy:
             cell.textLabel?.text = "Storage Policy"
             cell.detailTextLabel?.text = CachedURLResponseController.string(forCacheStoragePolicy: cachedURLResponse.storagePolicy)
             cell.accessoryType = .none
             cell.selectionStyle = .none
-        case 2:
+        case .userInfo:
             cell.textLabel?.text = "User Info"
             let numEntries = cachedURLResponse.userInfo?.count ?? 0
             cell.detailTextLabel?.text = "\(numEntries) Entries"
@@ -94,7 +105,7 @@ class CachedURLResponseController: UITableViewController {
                 cell.accessoryType = .none
                 cell.selectionStyle = .none
             }
-        case 3:
+        case .data:
             cell.textLabel?.text = "Data"
             cell.detailTextLabel?.text = "\(cachedURLResponse.data.count) Bytes"
             if cachedURLResponse.data.count > 0 {
@@ -104,8 +115,6 @@ class CachedURLResponseController: UITableViewController {
                 cell.accessoryType = .none
                 cell.selectionStyle = .none
             }
-        default:
-            break
         }
 
         return cell
@@ -116,17 +125,27 @@ class CachedURLResponseController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
 
-        switch indexPath.row {
-        case 0:
-            let controller = ResponseViewController(response: cachedURLResponse.response)
-            navigationController?.pushViewController(controller, animated: true)
-        case 3:
-            if cachedURLResponse.data.count > 0 {
-                let controller = DataDisplayViewController(data: cachedURLResponse.data, mimeType: cachedURLResponse.response.mimeType)
-                navigationController?.pushViewController(controller, animated: true)
-            }
-        default:
+        guard let rowEnum = CachedURLResponseRow(rawValue: indexPath.row) else {
+            return
+        }
+
+        var controller: UIViewController? = nil
+        switch rowEnum {
+        case .response:
+            controller = ResponseViewController(response: cachedURLResponse.response)
+        case .storagePolicy:
             break
+        case .userInfo:
+            if let userInfo = cachedURLResponse.userInfo, !userInfo.isEmpty {
+                controller = DictionaryDisplayController(withDictionary: userInfo)
+            }
+        case .data:
+            if cachedURLResponse.data.count > 0 {
+                controller = DataDisplayViewController(data: cachedURLResponse.data, mimeType: cachedURLResponse.response.mimeType)
+            }
+        }
+        if let controller = controller {
+            navigationController?.pushViewController(controller, animated: true)
         }
     }
 

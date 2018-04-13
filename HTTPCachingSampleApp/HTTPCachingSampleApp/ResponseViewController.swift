@@ -75,7 +75,7 @@ class ResponseViewController: UITableViewController {
         cell.textLabel?.text = name
         cell.detailTextLabel?.text = data[indexPath.section].rows[indexPath.row].value
 
-        if name == "URL" {
+        if name == "URL" || (name == "Headers" && hasHeaders()) {
             cell.accessoryType = .disclosureIndicator
             cell.selectionStyle = .default
         } else {
@@ -105,11 +105,18 @@ class ResponseViewController: UITableViewController {
 
         let name = data[indexPath.section].rows[indexPath.row].name
 
+        var controller: UIViewController? = nil
         if name == "URL" {
             if let url = URL(string: data[indexPath.section].rows[indexPath.row].value) {
-                let controller = URLDisplayViewController(url: url)
-                navigationController?.pushViewController(controller, animated: true)
+                controller = URLDisplayViewController(url: url)
             }
+        } else if name == "Headers" {
+            if let httpUrlResponse = response as? HTTPURLResponse, !httpUrlResponse.allHeaderFields.isEmpty {
+                controller = DictionaryDisplayController(withDictionary: httpUrlResponse.allHeaderFields)
+            }
+        }
+        if let controller = controller {
+            navigationController?.pushViewController(controller, animated: true)
         }
     }
 
@@ -119,9 +126,6 @@ class ResponseViewController: UITableViewController {
         var sections = [SectionData]()
 
         sections.append(ResponseViewController.urlResponseSection(forResponse: response))
-        if let responseHeadersSection = ResponseViewController.responseHeaderSection(forResponse: response) {
-            sections.append(responseHeadersSection)
-        }
 
         return sections
     }
@@ -146,26 +150,18 @@ class ResponseViewController: UITableViewController {
         if let httpResponse = response as? HTTPURLResponse {
             rows.append(RowData(name: "Status Code", value: "\(httpResponse.statusCode)"))
             rows.append(RowData(name: "Localized Status", value: HTTPURLResponse.localizedString(forStatusCode: httpResponse.statusCode)))
+            rows.append(RowData(name: "Headers", value: "\(httpResponse.allHeaderFields.count) Headers"))
         }
 
         return SectionData(title: "Response Info", rows: rows)
     }
 
-    private class func responseHeaderSection(forResponse response: URLResponse) -> SectionData? {
-        guard let httpResponse = response as? HTTPURLResponse, !httpResponse.allHeaderFields.isEmpty else {
-            return nil
+    private func hasHeaders() -> Bool {
+        guard let httpUrlResponse = response as? HTTPURLResponse else {
+            return false
         }
 
-        var rows = [RowData]()
-        for (headerName, headerValue) in httpResponse.allHeaderFields {
-            if let nameString = headerName as? String, let valueString = headerValue as? String {
-                rows.append(RowData(name: nameString, value: valueString))
-            } else {
-                print("WARNING: Response header name or value was not a String. Name: \(headerName), Value: \(headerValue)")
-            }
-        }
-
-        return SectionData(title: "Response Headers", rows: rows)
+        return !httpUrlResponse.allHeaderFields.isEmpty
     }
 
 }
