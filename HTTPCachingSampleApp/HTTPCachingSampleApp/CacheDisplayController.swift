@@ -117,7 +117,15 @@ class CacheDisplayController: UITableViewController {
                 if let urlInfo = appDelegate?.urls[indexPath.row], let url = urlInfo.url {
                     cell.textLabel?.text = urlInfo.name
                     let cachedResponse = appDelegate?.sessionCache?.cachedResponse(for: URLRequest(url: url))
-                    cell.detailTextLabel?.text = (cachedResponse != nil ? "Cached" : "Not Cached")
+                    if cachedResponse != nil {
+                        cell.detailTextLabel?.text = "Cached"
+                        cell.accessoryType = .disclosureIndicator
+                        cell.selectionStyle = .default
+                    } else {
+                        cell.detailTextLabel?.text = "Not Cached"
+                        cell.accessoryType = .none
+                        cell.selectionStyle = .none
+                    }
                 }
         }
 
@@ -153,6 +161,13 @@ class CacheDisplayController: UITableViewController {
         case .clearButton:
             clearCache()
             updateUI()
+        case .cacheStatusForFixedURLs:
+            if let urlInfo = appDelegate?.urls[indexPath.row],
+               let url = urlInfo.url,
+               let cachedResponse = appDelegate?.sessionCache?.cachedResponse(for: URLRequest(url: url)) {
+                let controller = CachedURLResponseController(cachedURLResponse: cachedResponse)
+                navigationController?.pushViewController(controller, animated: true)
+            }
         default:
             break
         }

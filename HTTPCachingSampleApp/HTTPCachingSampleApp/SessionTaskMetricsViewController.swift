@@ -113,13 +113,19 @@ class SessionTaskMetricsViewController: UITableViewController {
 
     // MARK: - Private methods
 
-    private func string(forResourceFetchType fetchType: URLSessionTaskMetrics.ResourceFetchType) -> String {
-        switch fetchType {
-        case .unknown: return "Unknown"
-        case .localCache: return "Local Cache"
-        case .serverPush: return "Server Push"
-        case .networkLoad: return "Network Load"
+    public class func string(forResourceFetchType fetchType: URLSessionTaskMetrics.ResourceFetchType?) -> String? {
+        guard let fetchType = fetchType else {
+            return nil
         }
+
+        var fetchTypeString = ""
+        switch fetchType {
+        case .unknown: fetchTypeString = "Unknown"
+        case .localCache: fetchTypeString = "Local Cache"
+        case .serverPush: fetchTypeString = "Server Push"
+        case .networkLoad: fetchTypeString = "Network Load"
+        }
+        return fetchTypeString
     }
 
     private class func dateFormatterToUse() -> DateFormatter {
@@ -207,7 +213,7 @@ class SessionTaskMetricsViewController: UITableViewController {
         }
         rows.append(RowData(name: "Proxy Connection", value: (metrics.isProxyConnection ? "Yes" : "No")))
         rows.append(RowData(name: "Reused Connection", value: (metrics.isReusedConnection ? "Yes" : "No")))
-        rows.append(RowData(name: "Resource Fetch Type", value: string(forResourceFetchType: metrics.resourceFetchType)))
+        rows.append(RowData(name: "Resource Fetch Type", value: SessionTaskMetricsViewController.string(forResourceFetchType: metrics.resourceFetchType) ?? ""))
 
         return SectionData(title: "Task Transaction \(index)", rows: rows)
     }

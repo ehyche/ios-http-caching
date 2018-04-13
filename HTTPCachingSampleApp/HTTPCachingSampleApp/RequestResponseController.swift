@@ -106,7 +106,7 @@ class RequestResponseController: UITableViewController {
             case .clearButton: numRows = 1
             case .responseInfo:
                 if urlResponse != nil {
-                    numRows = 1
+                    numRows = 2
                     if let request = urlRequest, sessionTaskMetrics(forRequest: request) != nil {
                         numRows += 1
                     }
@@ -187,18 +187,21 @@ class RequestResponseController: UITableViewController {
                 cell.detailTextLabel?.text = "\(statusCode)"
             case 1:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
+                cell.textLabel?.text = "Fetch Type"
+                cell.detailTextLabel?.text = SessionTaskMetricsViewController.string(forResourceFetchType: sessionTaskMetrics(forRequest: urlRequest)?.transactionMetrics.last?.resourceFetchType) ?? ""
+                cell.accessoryType = .none
+                cell.selectionStyle = .none
+            case 2:
+                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
                 cell.textLabel?.text = "Task Metrics Loaded"
-                if let request = urlRequest {
-                    let taskMetrics = sessionTaskMetrics(forRequest: request)
-                    if taskMetrics != nil {
-                        cell.detailTextLabel?.text = "Yes"
-                        cell.accessoryType = .disclosureIndicator
-                        cell.selectionStyle = .default
-                    } else {
-                        cell.detailTextLabel?.text = "No"
-                        cell.accessoryType = .none
-                        cell.selectionStyle = .none
-                    }
+                if sessionTaskMetrics(forRequest: urlRequest) != nil {
+                    cell.detailTextLabel?.text = "Yes"
+                    cell.accessoryType = .disclosureIndicator
+                    cell.selectionStyle = .default
+                } else {
+                    cell.detailTextLabel?.text = "No"
+                    cell.accessoryType = .none
+                    cell.selectionStyle = .none
                 }
             default:
                 break
@@ -480,7 +483,10 @@ class RequestResponseController: UITableViewController {
         return cachedResponse != nil
     }
 
-    private func sessionTaskMetrics(forRequest request: URLRequest) -> URLSessionTaskMetrics? {
+    private func sessionTaskMetrics(forRequest request: URLRequest?) -> URLSessionTaskMetrics? {
+        guard let request = request else {
+            return nil
+        }
         return appDelegate?.taskMetrics[request]
     }
 
