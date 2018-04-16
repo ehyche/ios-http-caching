@@ -108,8 +108,9 @@ class RequestViewController: UITableViewController {
         let name = data[indexPath.section].rows[indexPath.row].name
         cell.textLabel?.text = name
         cell.detailTextLabel?.text = data[indexPath.section].rows[indexPath.row].value
-        
-        if name == "URL" || name == "Main Document URL" {
+
+        let numHeaders = request.allHTTPHeaderFields?.count ?? 0
+        if name == "URL" || name == "Main Document URL" || (name == "Headers" && numHeaders > 0) {
             cell.accessoryType = .disclosureIndicator
             cell.selectionStyle = .default
         } else {
@@ -130,14 +131,22 @@ class RequestViewController: UITableViewController {
             return
         }
 
+        let numHeaders = request.allHTTPHeaderFields?.count ?? 0
         let rowName = data[indexPath.section].rows[indexPath.row].name
-        guard rowName == "URL" || rowName == "Main Document URL" else {
+        guard rowName == "URL" || rowName == "Main Document URL" || (rowName == "Headers" && numHeaders > 0) else {
             return
         }
 
-        if let url = URL(string: data[indexPath.section].rows[indexPath.row].value) {
-            let controller = URLDisplayViewController(url: url)
-            navigationController?.pushViewController(controller, animated: true)
+        if rowName == "URL" || rowName == "Main Document URL" {
+            if let url = URL(string: data[indexPath.section].rows[indexPath.row].value) {
+                let controller = URLDisplayViewController(url: url)
+                navigationController?.pushViewController(controller, animated: true)
+            }
+        } else if rowName == "Headers" {
+            if let headers = request.allHTTPHeaderFields, !headers.isEmpty {
+                let controller = DictionaryDisplayController(withDictionary: headers)
+                navigationController?.pushViewController(controller, animated: true)
+            }
         }
     }
 
@@ -159,9 +168,6 @@ class RequestViewController: UITableViewController {
         var sections = [SectionData]()
 
         sections.append(requestInfoSection(forRequest: request))
-        if let headersSection = requestHeadersSection(forRequest: request) {
-            sections.append(headersSection)
-        }
 
         return sections
     }
@@ -196,21 +202,10 @@ class RequestViewController: UITableViewController {
         if let serviceType = RequestViewController.string(forNetworkServiceType: request.networkServiceType) {
             rows.append(RowData(name: "Network Service Type", value: serviceType))
         }
+        let numHeaders = request.allHTTPHeaderFields?.count ?? 0
+        rows.append(RowData(name: "Headers", value: "\(numHeaders) Headers"))
 
         return SectionData(title: "Request Info", rows: rows)
-    }
-
-    private class func requestHeadersSection(forRequest request: URLRequest) -> SectionData? {
-        guard let requestHeaders = request.allHTTPHeaderFields, !requestHeaders.isEmpty else {
-            return nil
-        }
-
-        var rows = [RowData]()
-        for (headerName, headerValue) in requestHeaders {
-            rows.append(RowData(name: headerName, value: headerValue))
-        }
-
-        return SectionData(title: "Request Headers", rows: rows)
     }
 
 }

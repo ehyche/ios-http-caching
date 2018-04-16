@@ -31,8 +31,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     ]
     var taskMetrics = [URLRequest: URLSessionTaskMetrics]()
     var headerController: ResponseHeaderManipulationController? = nil
+    var cacheControlRequestHeaderValue: String? {
+        return headerController?.cacheControlRequestHeaderValue
+    }
     var cacheControlResponseHeaderValue: String? {
-        return headerController?.cacheControlHeaderValue
+        return headerController?.cacheControlResponseHeaderValue
     }
     private struct TaskResponseInfo {
         var response: URLResponse?

@@ -12,44 +12,118 @@ class ResponseHeaderManipulationController: UITableViewController {
 
     // MARK: - Public properties
 
-    public private(set) var cacheControlHeaderValue: String?
+    public private(set) var cacheControlRequestHeaderValue: String?
+    public private(set) var cacheControlResponseHeaderValue: String?
     public private(set) var expiresHeaderValue: String?
 
     // MARK: - Private properties
 
     private enum TableViewSection: Int {
-        case cacheControlParameters
-        case cacheControlHeader
+        case cacheControlRequestParameters
+        case cacheControlRequestHeader
+        case cacheControlResponseParameters
+        case cacheControlResponseHeader
     }
+    private static let TableViewSectionCount: Int = 4
 
-    private enum CacheControlParameters: Int {
+    private enum CacheControlRequestParameters: Int {
+        case noCache
+        case noStore
         case maxAge
         case maxStale
+        case minFresh
+        case noTransform
+        case onlyIfCached
     }
+    private static let CacheControlRequestParametersCount: Int = 7
+    private var cacheControlRequestSelectedIndex = Array<Int>(repeating: 0, count: ResponseHeaderManipulationController.CacheControlRequestParametersCount)
+    private let cacheControlRequestParamNames = [
+        "no-cache",
+        "no-store",
+        "max-age",
+        "max-stale",
+        "min-fresh",
+        "no-transform",
+        "only-if-cached"
+    ]
+    private let cacheControlRequestChoices: [[OperationParameterValue]] = [
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.maxAgeChoices,
+        ResponseHeaderManipulationController.maxStaleChoices,
+        ResponseHeaderManipulationController.minFreshChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices
+    ]
 
-    private let maxAgeChoices: [OperationParameterValue] = [
+    private enum CacheControlResponseParameters: Int {
+        case publicDirective
+        case privateDirective
+        case noCache
+        case noStore
+        case noTransform
+        case mustRevalidate
+        case proxyRevalidate
+        case maxAge
+        case sMaxAge
+    }
+    private static let CacheControlResponseParametersCount: Int = 9
+    private var cacheControlResponseSelectedIndex = Array<Int>(repeating: 0, count: ResponseHeaderManipulationController.CacheControlResponseParametersCount)
+    private let cacheControlResponseParamNames = [
+        "public",
+        "private",
+        "no-cache",
+        "no-store",
+        "no-transform",
+        "must-revalidate",
+        "proxy-revalidate",
+        "max-age",
+        "s-maxage"
+    ]
+    private let cacheControlResponseChoices: [[OperationParameterValue]] = [
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.booleanChoices,
+        ResponseHeaderManipulationController.maxAgeChoices,
+        ResponseHeaderManipulationController.maxAgeChoices
+    ]
+
+    private static let maxAgeChoices: [OperationParameterValue] = [
         OperationParameterValue.notSent,
         OperationParameterValue.integer(60),
         OperationParameterValue.integer(600),
         OperationParameterValue.integer(3600)
     ]
 
-    private let maxStaleChoices: [OperationParameterValue] = [
+    private static let maxStaleChoices: [OperationParameterValue] = [
         OperationParameterValue.notSent,
         OperationParameterValue.integer(60),
         OperationParameterValue.integer(600),
         OperationParameterValue.integer(3600)
     ]
 
-    private var selectedMaxAgeIndex = 0
-    private var selectedMaxStaleIndex = 0
+    private static let minFreshChoices: [OperationParameterValue] = [
+        OperationParameterValue.notSent,
+        OperationParameterValue.integer(60),
+        OperationParameterValue.integer(600),
+        OperationParameterValue.integer(3600)
+    ]
+
+    private static let booleanChoices: [OperationParameterValue] = [
+        OperationParameterValue.notSent,
+        OperationParameterValue.string("Sent")
+    ]
 
     // MARK: - UIViewController methods
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        navigationItem.title = "Alter Response Headers"
+        navigationItem.title = "Alter Cached Headers"
         tableView.register(GPAPIParameterTableViewCell.self, forCellReuseIdentifier: GPAPIParameterTableViewCell.reuseID)
     }
 
@@ -61,7 +135,7 @@ class ResponseHeaderManipulationController: UITableViewController {
     // MARK: - UITableViewDataSource methods
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return 2
+        return ResponseHeaderManipulationController.TableViewSectionCount
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -72,8 +146,10 @@ class ResponseHeaderManipulationController: UITableViewController {
         }
 
         switch tableViewSection {
-        case .cacheControlParameters: numRows = 2
-        case .cacheControlHeader: numRows = 1
+        case .cacheControlRequestParameters: numRows = ResponseHeaderManipulationController.CacheControlRequestParametersCount
+        case .cacheControlRequestHeader: numRows = 1
+        case .cacheControlResponseParameters: numRows = ResponseHeaderManipulationController.CacheControlResponseParametersCount
+        case .cacheControlResponseHeader: numRows = 1
         }
 
         return numRows
@@ -87,29 +163,32 @@ class ResponseHeaderManipulationController: UITableViewController {
         }
 
         switch section {
-        case .cacheControlParameters:
-            if let cacheControlParam = CacheControlParameters(rawValue: indexPath.row) {
-                switch cacheControlParam {
-                case .maxAge:
-                    cell.textLabel?.text = "Max-Age"
-                    cell.detailTextLabel?.text = maxAgeChoices[selectedMaxAgeIndex].description
-                    cell.accessoryType = .disclosureIndicator
-                    cell.selectionStyle = .default
-                case .maxStale:
-                    cell.textLabel?.text = "Max-Stale"
-                    cell.detailTextLabel?.text = maxStaleChoices[selectedMaxStaleIndex].description
-                    cell.accessoryType = .disclosureIndicator
-                    cell.selectionStyle = .default
-                }
+        case .cacheControlRequestParameters:
+            if indexPath.row < ResponseHeaderManipulationController.CacheControlRequestParametersCount {
+                let choices = cacheControlRequestChoices[indexPath.row]
+                let selectedIndex = cacheControlRequestSelectedIndex[indexPath.row]
+                cell.textLabel?.text = cacheControlRequestParamNames[indexPath.row]
+                cell.detailTextLabel?.text = choices[selectedIndex].description
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = .default
             }
-        case .cacheControlHeader:
-            var cellText = ""
-            if let headerValue = cacheControlHeaderValue {
-                cellText = "Cache-Control: \(headerValue)"
-            } else {
-                cellText = "Not Sent"
+        case .cacheControlRequestHeader:
+            cell.textLabel?.text = cacheControlRequestHeaderValue ?? "Not Sent"
+            cell.detailTextLabel?.text = nil
+            cell.accessoryType = .none
+            cell.selectionStyle = .none
+        case .cacheControlResponseParameters:
+            if indexPath.row < ResponseHeaderManipulationController.CacheControlResponseParametersCount {
+                let choices = cacheControlResponseChoices[indexPath.row]
+                let selectedIndex = cacheControlResponseSelectedIndex[indexPath.row]
+                cell.textLabel?.text = cacheControlResponseParamNames[indexPath.row]
+                cell.detailTextLabel?.text = choices[selectedIndex].description
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = .default
             }
-            cell.textLabel?.text = cellText
+        case .cacheControlResponseHeader:
+            cell.textLabel?.text = cacheControlResponseHeaderValue ?? "Not Sent"
+            cell.detailTextLabel?.text = nil
             cell.accessoryType = .none
             cell.selectionStyle = .none
         }
@@ -127,8 +206,10 @@ class ResponseHeaderManipulationController: UITableViewController {
         }
 
         switch tableViewSection {
-        case .cacheControlParameters: title = "Cache-Control Response Directives"
-        case .cacheControlHeader: title = "Inserted Cache-Control Header"
+        case .cacheControlRequestParameters:  title = "Cache-Control Request Directives"
+        case .cacheControlRequestHeader:      title = "Cache-Control Request Header"
+        case .cacheControlResponseParameters: title = "Cache-Control Response Directives"
+        case .cacheControlResponseHeader:     title = "Cache-Control Response Header"
         }
 
         return title
@@ -139,90 +220,91 @@ class ResponseHeaderManipulationController: UITableViewController {
             return
         }
 
+        var controller: UIViewController? = nil
         switch section {
-        case .cacheControlParameters:
-            if let cacheControlParam = CacheControlParameters(rawValue: indexPath.row) {
-                switch cacheControlParam {
-                case .maxAge:
-                    let controller = GPSelectionViewController(title: "Max-Age",
-                                                               choices: maxAgeChoices,
-                                                               selectedIndex: selectedMaxAgeIndex,
-                                                               autoPopOnSelectionChange: true)
-                    controller.onSelectionChanged = { [weak self] (selectedIndex: Int) in
-                        // Update the selected request parameter index
-                        self?.selectedMaxAgeIndex = selectedIndex
-                        // Update the Cache-Control header
-                        self?.updateHeaderValues()
-                        // Reload the tableview
-                        self?.tableView.reloadData()
-                    }
-                    navigationController?.pushViewController(controller, animated: true)
-                case .maxStale:
-                    let controller = GPSelectionViewController(title: "Max-Stale",
-                                                               choices: maxStaleChoices,
-                                                               selectedIndex: selectedMaxStaleIndex,
-                                                               autoPopOnSelectionChange: true)
-                    controller.onSelectionChanged = { [weak self] (selectedIndex: Int) in
-                        // Update the selected request parameter index
-                        self?.selectedMaxStaleIndex = selectedIndex
-                        // Update the Cache-Control header
-                        self?.updateHeaderValues()
-                        // Reload the tableview
-                        self?.tableView.reloadData()
-                    }
-                    navigationController?.pushViewController(controller, animated: true)
-                }
+        case .cacheControlRequestParameters:
+            let selectionController = GPSelectionViewController(title: cacheControlRequestParamNames[indexPath.row],
+                                                                choices: cacheControlRequestChoices[indexPath.row],
+                                                                selectedIndex: cacheControlRequestSelectedIndex[indexPath.row],
+                                                                autoPopOnSelectionChange: true)
+            selectionController.onSelectionChanged = { [weak self] (selectedIndex: Int) in
+                // Update the selected request parameter index
+                self?.cacheControlRequestSelectedIndex[indexPath.row] = selectedIndex
+                // Update the Cache-Control header
+                self?.updateHeaderValues()
+                // Reload the tableview
+                self?.tableView.reloadData()
             }
+            controller = selectionController
+        case .cacheControlResponseParameters:
+            let selectionController = GPSelectionViewController(title: cacheControlResponseParamNames[indexPath.row],
+                                                                choices: cacheControlResponseChoices[indexPath.row],
+                                                                selectedIndex: cacheControlResponseSelectedIndex[indexPath.row],
+                                                                autoPopOnSelectionChange: true)
+            selectionController.onSelectionChanged = { [weak self] (selectedIndex: Int) in
+                // Update the selected request parameter index
+                self?.cacheControlResponseSelectedIndex[indexPath.row] = selectedIndex
+                // Update the Cache-Control header
+                self?.updateHeaderValues()
+                // Reload the tableview
+                self?.tableView.reloadData()
+            }
+            controller = selectionController
         default:
             break
+        }
+        if let controller = controller {
+            navigationController?.pushViewController(controller, animated: true)
         }
     }
 
     private func updateHeaderValues() {
-        cacheControlHeaderValue = cacheControlValue()
+        cacheControlRequestHeaderValue = cacheControlRequestValue()
+        cacheControlResponseHeaderValue = cacheControlResponseValue()
     }
 
-    private func cacheControlValue() -> String? {
+    private func cacheControlRequestValue() -> String? {
         var params = [String]()
 
-        if let maxAge = maxAgeValue() {
-            params.append("max-age=\(maxAge)")
-        }
-        if let maxStale = maxStaleValue() {
-            params.append("max-stale=\(maxStale)")
+        for i in 0..<ResponseHeaderManipulationController.CacheControlRequestParametersCount {
+            let choices = cacheControlRequestChoices[i]
+            let paramName = cacheControlRequestParamNames[i]
+            let selectedIndex = cacheControlRequestSelectedIndex[i]
+            let choiceValue = choices[selectedIndex].description
+            if choiceValue != "Not Sent" {
+                if choiceValue == "Sent" {
+                    // This is a binary choice, so we just include the param name
+                    params.append(paramName)
+                } else {
+                    // This is a name-value pair, so we include name=value
+                    params.append("\(paramName)=\(choiceValue)")
+                }
+            }
         }
 
         return (params.isEmpty ? nil : params.joined(separator: ", "))
     }
 
-    private func maxAgeValue() -> Int? {
-        var value: Int? = nil
+    private func cacheControlResponseValue() -> String? {
+        var params = [String]()
 
-        guard selectedMaxAgeIndex < maxAgeChoices.count else {
-            return value
+        for i in 0..<ResponseHeaderManipulationController.CacheControlResponseParametersCount {
+            let choices = cacheControlResponseChoices[i]
+            let paramName = cacheControlResponseParamNames[i]
+            let selectedIndex = cacheControlResponseSelectedIndex[i]
+            let choiceValue = choices[selectedIndex].description
+            if choiceValue != "Not Sent" {
+                if choiceValue == "Sent" {
+                    // This is a binary choice, so we just include the param name
+                    params.append(paramName)
+                } else {
+                    // This is a name-value pair, so we include name=value
+                    params.append("\(paramName)=\(choiceValue)")
+                }
+            }
         }
 
-        switch maxAgeChoices[selectedMaxAgeIndex] {
-        case .integer(let intValue): value = intValue
-        default: break
-        }
-
-        return value
-    }
-
-    private func maxStaleValue() -> Int? {
-        var value: Int? = nil
-
-        guard selectedMaxStaleIndex < maxStaleChoices.count else {
-            return value
-        }
-
-        switch maxStaleChoices[selectedMaxStaleIndex] {
-        case .integer(let intValue): value = intValue
-        default: break
-        }
-
-        return value
+        return (params.isEmpty ? nil : params.joined(separator: ", "))
     }
 
 }

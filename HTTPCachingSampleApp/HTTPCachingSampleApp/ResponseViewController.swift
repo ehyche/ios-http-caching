@@ -113,6 +113,7 @@ class ResponseViewController: UITableViewController {
         } else if name == "Headers" {
             if let httpUrlResponse = response as? HTTPURLResponse, !httpUrlResponse.allHeaderFields.isEmpty {
                 controller = DictionaryDisplayController(withDictionary: httpUrlResponse.allHeaderFields)
+                controller?.navigationItem.title = "Response Headers"
             }
         }
         if let controller = controller {

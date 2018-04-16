@@ -18,9 +18,8 @@ class RequestResponseController: UITableViewController {
         case sendButton
         case clearButton
         case responseInfo
-        case responseHeaders
-        case responseData
     }
+    private static let TableViewSectionCount: Int = 5
 
     private struct ResponseHeader {
         var name: String
@@ -42,11 +41,12 @@ class RequestResponseController: UITableViewController {
         URLRequest.CachePolicy.reloadRevalidatingCacheData
     ]
     private var selectedCachePolicyIndex: Int = 0
-    private var timeoutChoices: [TimeInterval] = [
-        5.0,
-        10.0,
-        30.0,
-        60.0
+    private var timeoutChoices: [OperationParameterValue] = [
+        OperationParameterValue.number(5.0),
+        OperationParameterValue.number(10.0),
+        OperationParameterValue.number(30.0),
+        OperationParameterValue.number(60.0)
+
     ]
     private var selectedTimeoutIndex: Int = 2
 
@@ -89,7 +89,7 @@ class RequestResponseController: UITableViewController {
     // MARK: - UITableViewDataSource
 
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return 7
+        return RequestResponseController.TableViewSectionCount
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -100,19 +100,11 @@ class RequestResponseController: UITableViewController {
         }
 
         switch section {
-            case .requestSelection: numRows = 2
-            case .requestInfo: numRows = 4
+            case .requestSelection: numRows = 3
+            case .requestInfo: numRows = 2
             case .sendButton: numRows = 1
             case .clearButton: numRows = 1
-            case .responseInfo:
-                if urlResponse != nil {
-                    numRows = 2
-                    if let request = urlRequest, sessionTaskMetrics(forRequest: request) != nil {
-                        numRows += 1
-                    }
-                }
-            case .responseHeaders: numRows = urlResponseHeaders.count
-            case .responseData: numRows = 1
+            case .responseInfo: numRows = (urlResponse != nil ? 4 : 0)
         }
 
         return numRows
@@ -138,6 +130,18 @@ class RequestResponseController: UITableViewController {
                 cell.textLabel?.text = "Cache Policy"
                 cell.detailTextLabel?.text = RequestViewController.string(forCachePolicy: cachePolicyChoices[selectedCachePolicyIndex])
                 cell.accessoryType = .disclosureIndicator
+            case 2:
+                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
+                cell.textLabel?.text = "Timeout"
+                var timeout: Double = 0.0
+                switch timeoutChoices[selectedTimeoutIndex] {
+                case .number(let doubleValue):
+                    timeout = doubleValue
+                default:
+                    break
+                }
+                cell.detailTextLabel?.text = "\(timeout)"
+                cell.accessoryType = .disclosureIndicator
             default:
                 break
             }
@@ -145,25 +149,13 @@ class RequestResponseController: UITableViewController {
             switch indexPath.row {
             case 0:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
-                cell.textLabel?.text = "URL"
-                cell.detailTextLabel?.text = urls[selectedURLIndex].url?.absoluteString
+                cell.textLabel?.text = "Request"
+                cell.detailTextLabel?.text = urlRequest?.url?.absoluteString
                 cell.accessoryType = .disclosureIndicator
-                cell.selectionStyle = .gray
+                cell.selectionStyle = .default
             case 1:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
-                cell.textLabel?.text = "Cache Policy"
-                cell.detailTextLabel?.text = RequestViewController.string(forCachePolicy: cachePolicyChoices[selectedCachePolicyIndex])
-                cell.accessoryType = .none
-                cell.selectionStyle = .none
-            case 2:
-                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
-                cell.textLabel?.text = "Timeout"
-                cell.detailTextLabel?.text = "\(timeoutChoices[selectedTimeoutIndex])"
-                cell.accessoryType = .none
-                cell.selectionStyle = .none
-            case 3:
-                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
-                cell.textLabel?.text = "URLCache.cachedResponse returns"
+                cell.textLabel?.text = "URLCache.cachedResponse"
                 cell.detailTextLabel?.text = doesCacheContainResponseForCurrentRequest() ? "Non-nil" : "Nil"
             default:
                 break
@@ -182,16 +174,26 @@ class RequestResponseController: UITableViewController {
             switch indexPath.row {
             case 0:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
-                cell.textLabel?.text = "Status Code"
+                cell.textLabel?.text = "Response"
                 let statusCode = urlResponse?.statusCode ?? 0
-                cell.detailTextLabel?.text = "\(statusCode)"
+                let responseString = "Status: \(statusCode)"
+                cell.detailTextLabel?.text = responseString
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = .default
             case 1:
+                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
+                cell.textLabel?.text = "Response Data"
+                let responseDataSize = urlResponseData?.count ?? 0
+                cell.detailTextLabel?.text = "\(responseDataSize) Bytes"
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = .default
+            case 2:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
                 cell.textLabel?.text = "Fetch Type"
                 cell.detailTextLabel?.text = SessionTaskMetricsViewController.string(forResourceFetchType: sessionTaskMetrics(forRequest: urlRequest)?.transactionMetrics.last?.resourceFetchType) ?? ""
                 cell.accessoryType = .none
                 cell.selectionStyle = .none
-            case 2:
+            case 3:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
                 cell.textLabel?.text = "Task Metrics Loaded"
                 if sessionTaskMetrics(forRequest: urlRequest) != nil {
@@ -205,17 +207,6 @@ class RequestResponseController: UITableViewController {
                 }
             default:
                 break
-            }
-        case .responseHeaders:
-            if indexPath.row < urlResponseHeaders.count {
-                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
-                cell.textLabel?.text = urlResponseHeaders[indexPath.row].name
-                cell.detailTextLabel?.text = urlResponseHeaders[indexPath.row].value
-            }
-        case .responseData:
-            cell = tableView.dequeueReusableCell(withIdentifier: TextViewTableViewCell.reuseID, for: indexPath)
-            if let textViewCell = cell as? TextViewTableViewCell {
-                textViewCell.cellText = urlResponseDataString
             }
         }
 
@@ -232,32 +223,13 @@ class RequestResponseController: UITableViewController {
         }
 
         switch section {
-            case .requestSelection: title = "Select URL and Cache Policy"
+            case .requestSelection: title = "Select Request Parameters"
             case .requestInfo: title = "Request Info"
             case .responseInfo: title = "Response Info"
-            case .responseHeaders: title = "Response Headers"
-            case .responseData: title = "Response Data"
             default: break
         }
 
         return title
-    }
-
-    override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        var height: CGFloat = 44.0
-
-        guard let section = TableViewSection(rawValue: indexPath.section) else {
-            return height
-        }
-
-        switch section {
-            case .responseData:
-                height = 400.0
-            default:
-                break
-        }
-
-        return height
     }
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -292,14 +264,24 @@ class RequestResponseController: UITableViewController {
                         self?.handleCachePolicySelection(index: selectedIndex)
                     }
                     navigationController?.pushViewController(controller, animated: true)
+                case 2:
+                    // The user wants to change the timeout
+                    let controller = GPSelectionViewController(title: "Timeout",
+                                                               choices: timeoutChoices,
+                                                               selectedIndex: selectedTimeoutIndex,
+                                                               autoPopOnSelectionChange: true)
+                    controller.onSelectionChanged = { [weak self] (selectedIndex: Int) in
+                        self?.handleTimeoutSelection(index: selectedIndex)
+                    }
+                    navigationController?.pushViewController(controller, animated: true)
                 default:
                     break
                 }
             case .requestInfo:
                 switch indexPath.row {
                 case 0:
-                    if let url = urls[selectedURLIndex].url {
-                        let controller = URLDisplayViewController(url: url)
+                    if let request = urlRequest {
+                        let controller = RequestViewController(request: request)
                         navigationController?.pushViewController(controller, animated: true)
                     }
                 default:
@@ -311,17 +293,27 @@ class RequestResponseController: UITableViewController {
                 clearResponse()
                 updateUI()
             case .responseInfo:
-                if indexPath.row == 2 {
+                switch indexPath.row {
+                case 0:
+                    if let response = urlResponse {
+                        let controller = ResponseViewController(response: response)
+                        navigationController?.pushViewController(controller, animated: true)
+                    }
+                case 1:
+                    if let data = urlResponseData {
+                        let controller = DataDisplayViewController(data: data, mimeType: urlResponse?.mimeType)
+                        navigationController?.pushViewController(controller, animated: true)
+                    }
+                case 3:
                     if let request = urlRequest,
-                       let taskMetrics = sessionTaskMetrics(forRequest: request)  {
+                        let taskMetrics = sessionTaskMetrics(forRequest: request)  {
                         let controller = SessionTaskMetricsViewController(style: .grouped)
                         controller.taskMetrics = taskMetrics
                         navigationController?.pushViewController(controller, animated: true)
                     }
+                default:
+                    break
                 }
-                break
-            default:
-                break
         }
     }
 
@@ -472,7 +464,14 @@ class RequestResponseController: UITableViewController {
 
         urlRequest = URLRequest(url: url,
                                 cachePolicy: cachePolicyChoices[selectedCachePolicyIndex],
-                                timeoutInterval: timeoutChoices[selectedTimeoutIndex])
+                                timeoutInterval: timeoutInterval())
+
+        if let cacheControlHeader = appDelegate?.cacheControlRequestHeaderValue, !cacheControlHeader.isEmpty {
+            urlRequest?.allHTTPHeaderFields = [
+                "Cache-Control": cacheControlHeader
+            ]
+        }
+
     }
 
     private func doesCacheContainResponseForCurrentRequest() -> Bool {
@@ -488,6 +487,21 @@ class RequestResponseController: UITableViewController {
             return nil
         }
         return appDelegate?.taskMetrics[request]
+    }
+
+    private func timeoutInterval() -> TimeInterval {
+        var interval: TimeInterval = 30.0
+
+        guard selectedTimeoutIndex < timeoutChoices.count else {
+            return interval
+        }
+
+        switch timeoutChoices[selectedTimeoutIndex] {
+        case .number(let doubleValue): interval = doubleValue
+        default: break
+        }
+
+        return interval
     }
 
 }
