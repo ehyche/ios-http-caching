@@ -121,7 +121,7 @@ class CachedURLResponseController: UITableViewController {
         case .age:
             cell.textLabel?.text = "Age"
             let age = CachedURLResponseController.age(ofCachedResponse: cachedURLResponse)
-            cell.detailTextLabel?.text = "\(age)"
+            cell.detailTextLabel?.text = String(format: "%.1f seconds", age)
             cell.accessoryType = .none
             cell.selectionStyle = .none
         }
