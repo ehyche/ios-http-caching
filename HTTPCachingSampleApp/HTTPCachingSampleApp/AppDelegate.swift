@@ -17,17 +17,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         var name: String
         var url: URL?
     }
+    
+    typealias HeaderGenerator = () -> String
+    
+    public struct RequestHeaderInfo {
+        var displayName: String
+        var headerName: String?
+        var headerValue: HeaderGenerator?
+    }
 
     var window: UIWindow?
     var session: URLSession?
     var sessionCache: URLCache?
     var urls = [
-        URLInfo(name: "DealId A, show=default",
+        URLInfo(name: "show=default",
                 url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=default&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
-        URLInfo(name: "DealId A, show=uuid",
+        URLInfo(name: "show=uuid",
                 url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=uuid&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
-        URLInfo(name: "DealId A, show=default, fake param",
-                url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=default&fakeParam=fakeValue&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
+        URLInfo(name: "show=options",
+                url: URL(string: "https://api.groupon.com/api/mobile/US/deals/smoky-mountain-alpine-coaster?show=options&client_id=2995a613b7f3cec7362d4eb30b0d424f")),
+    ]
+    var headers = [
+        RequestHeaderInfo(displayName: "None", headerName: nil, headerValue: nil),
+        RequestHeaderInfo(displayName: "X-Brand (fixed)", headerName: "X-Brand", headerValue: { return "groupon" }),
+        RequestHeaderInfo(displayName: "X-Request-Id (changes)", headerName: "X-Request-Id", headerValue: { return UUID().uuidString })
     ]
     var taskMetrics = [URLRequest: URLSessionTaskMetrics]()
     var headerController: ResponseHeaderManipulationController? = nil

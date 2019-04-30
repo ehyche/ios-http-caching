@@ -54,6 +54,7 @@ class RequestViewController: UITableViewController {
         case .video: return "Video"
         case .voice: return "Voice"
         case .voip: return "VOIP"
+        case .responsiveData: return "Responsive Data"
         }
     }
 

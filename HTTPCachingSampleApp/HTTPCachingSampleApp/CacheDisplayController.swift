@@ -71,7 +71,10 @@ class CacheDisplayController: UITableViewController {
         switch section {
             case .status: numRows = 4
             case .clearButton: numRows = 1
-            case .cacheStatusForFixedURLs: numRows = appDelegate?.urls.count ?? 0
+            case .cacheStatusForFixedURLs:
+                let urlsCount = appDelegate?.urls.count ?? 0
+                let headersCount = appDelegate?.headers.count ?? 0
+                numRows = urlsCount * headersCount
         }
 
         return numRows
@@ -114,19 +117,12 @@ class CacheDisplayController: UITableViewController {
                 }
             case .cacheStatusForFixedURLs:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIResponseTableViewCell.reuseID, for: indexPath)
-                if let urlInfo = appDelegate?.urls[indexPath.row], let url = urlInfo.url {
-                    cell.textLabel?.text = urlInfo.name
-                    let cachedResponse = appDelegate?.sessionCache?.cachedResponse(for: URLRequest(url: url))
-                    if cachedResponse != nil {
-                        cell.detailTextLabel?.text = "Cached"
-                        cell.accessoryType = .disclosureIndicator
-                        cell.selectionStyle = .default
-                    } else {
-                        cell.detailTextLabel?.text = "Not Cached"
-                        cell.accessoryType = .none
-                        cell.selectionStyle = .none
-                    }
-                }
+                let result = cachedResponse(forIndexPath: indexPath)
+                let isCached = result.cachedResponse != nil
+                cell.textLabel?.text = result.name
+                cell.detailTextLabel?.text = (isCached ? "Cached" : "Not Cached")
+                cell.accessoryType = (isCached ? .disclosureIndicator : .none)
+                cell.selectionStyle = (isCached ? .default : .none)
         }
 
         return cell
@@ -162,9 +158,8 @@ class CacheDisplayController: UITableViewController {
             clearCache()
             updateUI()
         case .cacheStatusForFixedURLs:
-            if let urlInfo = appDelegate?.urls[indexPath.row],
-               let url = urlInfo.url,
-               let cachedResponse = appDelegate?.sessionCache?.cachedResponse(for: URLRequest(url: url)) {
+            let result = cachedResponse(forIndexPath: indexPath)
+            if let cachedResponse = result.cachedResponse {
                 let controller = CachedURLResponseController(cachedURLResponse: cachedResponse)
                 navigationController?.pushViewController(controller, animated: true)
             }
@@ -174,6 +169,27 @@ class CacheDisplayController: UITableViewController {
     }
 
     // MARK: - Private methods
+    
+    private func cachedResponse(forIndexPath indexPath: IndexPath) -> (name: String, cachedResponse: CachedURLResponse?) {
+        var name = ""
+        var cachedResponse: CachedURLResponse? = nil
+        
+        let headersCount = appDelegate?.headers.count ?? 1
+        let urlIndex = indexPath.row / headersCount
+        let headerIndex = indexPath.row % headersCount
+        if let urlInfo = appDelegate?.urls[urlIndex], let url = urlInfo.url,
+            let headerInfo = appDelegate?.headers[headerIndex] {
+            name = "URL=\(urlInfo.name),Header=\(headerInfo.displayName)"
+            var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30.0)
+            if let headerName = headerInfo.headerName,
+               let headerValue = headerInfo.headerValue?(),
+               !headerName.isEmpty, !headerValue.isEmpty {
+                request.setValue(headerValue, forHTTPHeaderField: headerName)
+            }
+            cachedResponse = appDelegate?.sessionCache?.cachedResponse(for: request)
+        }
+        return (name: name, cachedResponse: cachedResponse)
+    }
 
     private func clearCache() {
         appDelegateCache?.removeAllCachedResponses()

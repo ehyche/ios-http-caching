@@ -32,6 +32,7 @@ class RequestResponseController: UITableViewController {
     private var urlResponseDataString: String?
     private var loadingView = GPLoadingView(frame: .zero)
     private var selectedURLIndex: Int = 0
+    private var selectedHeaderIndex: Int = 0
     private var cachePolicyChoices: [URLRequest.CachePolicy] = [
         URLRequest.CachePolicy.useProtocolCachePolicy,
         URLRequest.CachePolicy.reloadIgnoringLocalCacheData,
@@ -60,6 +61,10 @@ class RequestResponseController: UITableViewController {
 
     private var urls: [AppDelegate.URLInfo] {
         return appDelegate?.urls ?? [AppDelegate.URLInfo]()
+    }
+    
+    private var requestHeaders: [AppDelegate.RequestHeaderInfo] {
+        return appDelegate?.headers ?? [AppDelegate.RequestHeaderInfo]()
     }
 
     override func viewDidLoad() {
@@ -100,7 +105,7 @@ class RequestResponseController: UITableViewController {
         }
 
         switch section {
-            case .requestSelection: numRows = 3
+            case .requestSelection: numRows = 4
             case .requestInfo: numRows = 2
             case .sendButton: numRows = 1
             case .clearButton: numRows = 1
@@ -127,10 +132,15 @@ class RequestResponseController: UITableViewController {
                 cell.accessoryType = .disclosureIndicator
             case 1:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
+                cell.textLabel?.text = "Header"
+                cell.detailTextLabel?.text = requestHeaders[selectedHeaderIndex].displayName
+                cell.accessoryType = .disclosureIndicator
+            case 2:
+                cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
                 cell.textLabel?.text = "Cache Policy"
                 cell.detailTextLabel?.text = RequestViewController.string(forCachePolicy: cachePolicyChoices[selectedCachePolicyIndex])
                 cell.accessoryType = .disclosureIndicator
-            case 2:
+            case 3:
                 cell = tableView.dequeueReusableCell(withIdentifier: GPAPIParameterTableViewCell.reuseID, for: indexPath)
                 cell.textLabel?.text = "Timeout"
                 var timeout: Double = 0.0
@@ -252,6 +262,19 @@ class RequestResponseController: UITableViewController {
                     navigationController?.pushViewController(controller, animated: true)
                 case 1:
                     var choices = [OperationParameterValue]()
+                    for requestHeader in requestHeaders {
+                        choices.append(OperationParameterValue.string(requestHeader.displayName))
+                    }
+                    let controller = GPSelectionViewController(title: "Request Header",
+                                                               choices: choices,
+                                                               selectedIndex: selectedHeaderIndex,
+                                                               autoPopOnSelectionChange: true)
+                    controller.onSelectionChanged = { [weak self] (selectedIndex: Int) in
+                        self?.handleRequestHeaderSelection(index: selectedIndex)
+                    }
+                    navigationController?.pushViewController(controller, animated: true)
+                case 2:
+                    var choices = [OperationParameterValue]()
                     for policy in cachePolicyChoices {
                         let cachePolicyChoiceString = RequestViewController.string(forCachePolicy: policy) ?? ""
                         choices.append(OperationParameterValue.string(cachePolicyChoiceString))
@@ -264,7 +287,7 @@ class RequestResponseController: UITableViewController {
                         self?.handleCachePolicySelection(index: selectedIndex)
                     }
                     navigationController?.pushViewController(controller, animated: true)
-                case 2:
+                case 3:
                     // The user wants to change the timeout
                     let controller = GPSelectionViewController(title: "Timeout",
                                                                choices: timeoutChoices,
@@ -434,6 +457,15 @@ class RequestResponseController: UITableViewController {
         rebuildRequest()
         updateUI()
     }
+    
+    private func handleRequestHeaderSelection(index: Int) {
+        if index != selectedHeaderIndex {
+            clearResponse()
+        }
+        selectedHeaderIndex = index
+        rebuildRequest()
+        updateUI()
+    }
 
     private func handleCachePolicySelection(index: Int) {
         if index != selectedCachePolicyIndex {
@@ -457,6 +489,7 @@ class RequestResponseController: UITableViewController {
         // Sanity checks
         guard selectedURLIndex < urls.count,
               let url = urls[selectedURLIndex].url,
+              selectedHeaderIndex < requestHeaders.count,
               selectedCachePolicyIndex < cachePolicyChoices.count,
               selectedTimeoutIndex < timeoutChoices.count else {
             return
@@ -467,9 +500,13 @@ class RequestResponseController: UITableViewController {
                                 timeoutInterval: timeoutInterval())
 
         if let cacheControlHeader = appDelegate?.cacheControlRequestHeaderValue, !cacheControlHeader.isEmpty {
-            urlRequest?.allHTTPHeaderFields = [
-                "Cache-Control": cacheControlHeader
-            ]
+            urlRequest?.setValue(cacheControlHeader, forHTTPHeaderField: "Cache-Control")
+        }
+
+        if let headerName = requestHeaders[selectedHeaderIndex].headerName,
+           let headerValue = requestHeaders[selectedHeaderIndex].headerValue?(),
+           !headerName.isEmpty, !headerValue.isEmpty {
+            urlRequest?.setValue(headerValue, forHTTPHeaderField: headerName)
         }
 
     }
